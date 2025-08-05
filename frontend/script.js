@@ -1,13 +1,17 @@
 // 粘滞键状态管理
 const stickyKeys = {
-    'shift': 'inactive',
-    'ctrl': 'inactive',
-    'alt': 'inactive',
+    'leftshift': 'inactive',
+    'rightshift': 'inactive',
+    'leftctrl': 'inactive',
+    'rightctrl': 'inactive',
+    'leftalt': 'inactive',
+    'rightalt': 'inactive',
     'win': 'inactive'
 };
 
 // 功能键布局定义
 const functionKeyLayout = [
+    { key: 'esc', label: 'Esc', classes: 'function' },
     { key: 'f1', label: 'F1', classes: 'function' },
     { key: 'f2', label: 'F2', classes: 'function' },
     { key: 'f3', label: 'F3', classes: 'function' },
@@ -24,6 +28,7 @@ const functionKeyLayout = [
 
 // 数字键布局定义
 const numberKeyLayout = [
+    { key: '`', label: '`', classes: 'function' },
     { key: '1', label: '1', classes: 'function' },
     { key: '2', label: '2', classes: 'function' },
     { key: '3', label: '3', classes: 'function' },
@@ -44,8 +49,8 @@ let currentMode = 'number';
 // 键盘布局定义
 const keyboardLayout = [
     [
-        { key: 'esc', label: 'Esc', classes: 'function' },
         // 功能键占位，将在createKeyboard中替换
+        { key: 'esc', label: 'Esc', classes: 'function' },
         { key: 'f1', label: 'F1', classes: 'function' },
         { key: 'f2', label: 'F2', classes: 'function' },
         { key: 'f3', label: 'F3', classes: 'function' },
@@ -92,7 +97,7 @@ const keyboardLayout = [
         { key: 'enter', label: 'Enter', classes: 'control' }
     ],
     [
-        { key: 'shift', label: 'Shift', classes: 'shift' },
+        { key: 'leftshift', label: 'Shift', classes: 'shift' },
         { key: 'z', label: 'Z' },
         { key: 'x', label: 'X' },
         { key: 'c', label: 'C' },
@@ -103,16 +108,16 @@ const keyboardLayout = [
         { key: ',', label: ',' },
         { key: '.', label: '.' },
         { key: '/', label: '/' },
-        { key: 'shift', label: 'Shift', classes: 'shift' }
+        { key: 'rightshift', label: 'Shift', classes: 'shift' }
     ],
     [
-        { key: 'ctrl', label: 'Ctrl' },
+        { key: 'leftctrl', label: 'Ctrl' },
         { key: 'win', label: 'Win' },
-        { key: 'alt', label: 'Alt' },
+        { key: 'leftalt', label: 'Alt' },
         { key: 'space', label: 'Space', classes: 'space' },
-        { key: 'alt', label: 'Alt' },
+        { key: 'rightalt', label: 'Alt' },
         { key: 'win', label: 'Win' },
-        { key: 'ctrl', label: 'Ctrl' }
+        { key: 'rightctrl', label: 'Ctrl' }
     ],
     [
         { key: 'arrowleft', label: '←', classes: 'arrow' },
@@ -132,11 +137,11 @@ function createKeyboard() {
 
     keyboardLayout.forEach((row, rowIndex) => {
         row.forEach((keyDef, colIndex) => {
-            // 如果是功能键位置（F1-F12），则使用当前模式的键布局
+            // 如果是功能键位置（ESC-F12），则使用当前模式的键布局
             let actualKeyDef = keyDef;
-            if (rowIndex === 0 && colIndex >= 1 && colIndex <= 12) {
+            if (rowIndex === 0 && colIndex >= 0 && colIndex <= 12) {
                 // F1-F12的位置（索引1-12）
-                actualKeyDef = functionKeys[colIndex - 1];
+                actualKeyDef = functionKeys[colIndex];
             }
 
             const keyElement = document.createElement('div');
@@ -246,7 +251,7 @@ async function sendKeyEvent(key, action) {
 function toggleFullscreen() {
     const elem = document.documentElement;
     const fullscreenBtn = document.getElementById('fullscreenBtn');
-    
+
     if (!document.fullscreenElement) {
         // 进入全屏
         if (elem.requestFullscreen) {
@@ -282,8 +287,8 @@ document.addEventListener('MSFullscreenChange', handleFullscreenChange); // IE/E
 
 function handleFullscreenChange() {
     const fullscreenBtn = document.getElementById('fullscreenBtn');
-    if (document.fullscreenElement || 
-        document.webkitFullscreenElement || 
+    if (document.fullscreenElement ||
+        document.webkitFullscreenElement ||
         document.mozFullScreenElement ||
         document.msFullscreenElement) {
         fullscreenBtn.textContent = '退出全屏';
@@ -296,13 +301,13 @@ function handleFullscreenChange() {
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('statusBar').textContent = '已连接';
     createKeyboard();
-    
+
     // 添加全屏按钮事件监听器
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     if (fullscreenBtn) {
         fullscreenBtn.addEventListener('click', toggleFullscreen);
     }
-    
+
     // 添加模式切换按钮事件监听器
     const modeToggleBtn = document.getElementById('modeToggleBtn');
     if (modeToggleBtn) {

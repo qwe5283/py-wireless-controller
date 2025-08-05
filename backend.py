@@ -1,4 +1,3 @@
-# backend/app.py
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import pynput
@@ -16,15 +15,21 @@ class KeyboardController:
     def __init__(self):
         self.keyboard = Controller()
         self.sticky_keys = {
-            'shift': 'inactive',
-            'ctrl': 'inactive',
-            'alt': 'inactive',
+            'leftshift': 'inactive',
+            'rightshift': 'inactive',
+            'leftctrl': 'inactive',
+            'rightctrl': 'inactive',
+            'leftalt': 'inactive',
+            'rightalt': 'inactive',
             'win': 'inactive'
         }
         self.KEY_MAP = {
-            'shift': Key.shift,
-            'ctrl': Key.ctrl,
-            'alt': Key.alt,
+            'leftshift': Key.shift_l,
+            'rightshift': Key.shift_r,
+            'leftctrl': Key.ctrl_l,
+            'rightctrl': Key.ctrl_r,
+            'leftalt': Key.alt_l,
+            'rightalt': Key.alt_r,
             'win': Key.cmd,
             'esc': Key.esc,
             'tab': Key.tab,
@@ -52,6 +57,7 @@ class KeyboardController:
         }
     
     def get_pynput_key(self, key_name):
+        """获取键值"""
         if key_name in self.KEY_MAP:
             return self.KEY_MAP[key_name]
         if len(key_name) == 1:
@@ -59,6 +65,7 @@ class KeyboardController:
         return None
     
     def press_sticky_key(self, key_name):
+        """切换粘滞键状态"""
         current_state = self.sticky_keys.get(key_name, 'inactive')
         
         if current_state == 'inactive':
@@ -84,6 +91,7 @@ class KeyboardController:
                 logging.info(f"Sticky key '{key_name}' deactivated (auto-reset)")
     
     def process_key_event(self, key_name, action):
+        """处理按键事件"""
         pynput_key = self.get_pynput_key(key_name)
         if not pynput_key:
             logging.error(f"Unsupported key: {key_name}")
@@ -91,11 +99,14 @@ class KeyboardController:
         
         try:
             if key_name in self.sticky_keys:
+                # 按下粘滞键
                 if action == 'down':
                     self.press_sticky_key(key_name)
                     if self.sticky_keys[key_name] == 'locked':
+                        # 按住粘滞键
                         self.keyboard.press(pynput_key)
             else:
+                # 按下其他键
                 if action == 'down':
                     active_modifiers = []
                     for mod_key, state in self.sticky_keys.items():
@@ -127,6 +138,7 @@ keyboard_controller = KeyboardController()
 
 @app.route('/keypress', methods=['POST'])
 def keypress():
+    """读取传入键值"""
     data = request.get_json()
     if not data or 'key' not in data or 'action' not in data:
         logging.error("Invalid request: missing key or action")
