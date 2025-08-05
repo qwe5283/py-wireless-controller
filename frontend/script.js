@@ -9,6 +9,12 @@ const stickyKeys = {
     'win': 'inactive'
 };
 
+// 当前键盘模式（默认为数字键模式）
+let currentMode = 'number';
+
+// 当前操作模式（默认为通用模式）
+let operationMode = 'general'; // 'general' 或 'simulation'
+
 // 功能键布局定义
 const functionKeyLayout = [
     { key: 'esc', label: 'Esc', classes: 'function' },
@@ -42,9 +48,6 @@ const numberKeyLayout = [
     { key: '-', label: '-', classes: 'function' },
     { key: '=', label: '=', classes: 'function' }
 ];
-
-// 当前键盘模式（默认为数字键模式）
-let currentMode = 'number';
 
 // 键盘布局定义
 const keyboardLayout = [
@@ -148,6 +151,12 @@ function createKeyboard() {
             keyElement.className = `key ${actualKeyDef.classes || ''}`;
             keyElement.dataset.key = actualKeyDef.key;
             keyElement.textContent = actualKeyDef.label;
+
+            // 在仿真模式下，我们需要跟踪按键状态
+            if (operationMode === 'simulation') {
+                keyElement.dataset.pressed = 'false';
+            }
+
             keyElement.addEventListener('touchstart', handleKeyPress, { passive: false });
             keyElement.addEventListener('touchend', handleKeyRelease, { passive: false });
             keyElement.addEventListener('mousedown', handleKeyPress);
@@ -168,20 +177,42 @@ function toggleKeyboardMode() {
     createKeyboard();
 }
 
+// 切换操作模式
+function toggleOperationMode() {
+    operationMode = operationMode === 'general' ? 'simulation' : 'general';
+    const simulationModeBtn = document.getElementById('simulationModeBtn');
+    simulationModeBtn.textContent = operationMode === 'general' ? '通用模式' : '仿真模式';
+
+    // 在切换到通用模式时，确保所有按键状态重置
+    if (operationMode === 'general') {
+        document.querySelectorAll('.key').forEach(keyElement => {
+            keyElement.dataset.pressed = 'false';
+            keyElement.classList.remove('pressed');
+        });
+    }
+
+    // 更新状态栏显示
+    document.getElementById('statusBar').textContent =
+        operationMode === 'general' ? '已连接 - 通用模式' : '已连接 - 仿真模式';
+}
+
 // 更新粘滞键UI状态
 function updateStickyKeyUI() {
-    document.querySelectorAll('.key').forEach(keyElement => {
-        const keyName = keyElement.dataset.key;
-        if (stickyKeys.hasOwnProperty(keyName)) {
-            keyElement.classList.remove('sticky-active', 'sticky-locked');
+    // 只在通用模式下显示粘滞键状态
+    if (operationMode === 'general') {
+        document.querySelectorAll('.key').forEach(keyElement => {
+            const keyName = keyElement.dataset.key;
+            if (stickyKeys.hasOwnProperty(keyName)) {
+                keyElement.classList.remove('sticky-active', 'sticky-locked');
 
-            if (stickyKeys[keyName] === 'active') {
-                keyElement.classList.add('sticky-active');
-            } else if (stickyKeys[keyName] === 'locked') {
-                keyElement.classList.add('sticky-locked');
+                if (stickyKeys[keyName] === 'active') {
+                    keyElement.classList.add('sticky-active');
+                } else if (stickyKeys[keyName] === 'locked') {
+                    keyElement.classList.add('sticky-locked');
+                }
             }
-        }
-    });
+        });
+    }
 }
 
 // 处理按键按下
@@ -190,8 +221,16 @@ function handleKeyPress(e) {
     const keyElement = e.target;
     const keyName = keyElement.dataset.key;
 
-    keyElement.classList.add('pressed');
-    sendKeyEvent(keyName, 'down');
+    if (operationMode === 'general') {
+        // 通用模式：使用粘滞键特性
+        keyElement.classList.add('pressed');
+        sendKeyEvent(keyName, 'down');
+    } else {
+        // 仿真模式：模拟按下的行为
+        keyElement.classList.add('pressed');
+        keyElement.dataset.pressed = 'true';
+        sendKeyEvent(keyName, 'down');
+    }
 }
 
 // 处理按键释放
@@ -200,27 +239,38 @@ function handleKeyRelease(e) {
     const keyElement = e.target;
     const keyName = keyElement.dataset.key;
 
-    keyElement.classList.remove('pressed');
-    sendKeyEvent(keyName, 'up');
+    if (operationMode === 'general') {
+        // 通用模式：使用粘滞键特性
+        keyElement.classList.remove('pressed');
+        sendKeyEvent(keyName, 'up');
+    } else {
+        // 仿真模式：模拟释放的行为
+        keyElement.classList.remove('pressed');
+        keyElement.dataset.pressed = 'false';
+        sendKeyEvent(keyName, 'up');
+    }
 }
 
 // 更新粘滞键状态
 async function updateStickyKeyState() {
-    try {
-        const response = await fetch('/sticky_keys');
-        if (!response.ok) {
-            throw new Error('获取粘滞键状态失败');
-        }
-        const data = await response.json();
-        Object.keys(stickyKeys).forEach(key => {
-            if (data.hasOwnProperty(key)) {
-                stickyKeys[key] = data[key];
+    // 只在通用模式下更新粘滞键状态
+    if (operationMode === 'general') {
+        try {
+            const response = await fetch('/sticky_keys');
+            if (!response.ok) {
+                throw new Error('获取粘滞键状态失败');
             }
-        });
-        updateStickyKeyUI();
-    } catch (error) {
-        console.error('更新粘滞键状态失败:', error);
-        document.getElementById('statusBar').textContent = `错误: ${error.message}`;
+            const data = await response.json();
+            Object.keys(stickyKeys).forEach(key => {
+                if (data.hasOwnProperty(key)) {
+                    stickyKeys[key] = data[key];
+                }
+            });
+            updateStickyKeyUI();
+        } catch (error) {
+            console.error('更新粘滞键状态失败:', error);
+            document.getElementById('statusBar').textContent = `错误: ${error.message}`;
+        }
     }
 }
 
@@ -232,7 +282,11 @@ async function sendKeyEvent(key, action) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ key, action })
+            body: JSON.stringify({
+                key,
+                action,
+                mode: operationMode  // 发送当前操作模式到后端
+            })
         });
 
         if (!response.ok) {
@@ -240,7 +294,10 @@ async function sendKeyEvent(key, action) {
             throw new Error(errorData.error || '未知错误');
         }
 
-        await updateStickyKeyState();
+        // 只在通用模式下更新粘滞键状态
+        if (operationMode === 'general') {
+            await updateStickyKeyState();
+        }
     } catch (error) {
         console.error('发送按键事件失败:', error);
         document.getElementById('statusBar').textContent = `错误: ${error.message}`;
@@ -299,7 +356,7 @@ function handleFullscreenChange() {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('statusBar').textContent = '已连接';
+    document.getElementById('statusBar').textContent = '已连接 - 通用模式';
     createKeyboard();
 
     // 添加全屏按钮事件监听器
@@ -312,5 +369,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const modeToggleBtn = document.getElementById('modeToggleBtn');
     if (modeToggleBtn) {
         modeToggleBtn.addEventListener('click', toggleKeyboardMode);
+    }
+
+    // 添加仿真模式切换按钮事件监听器
+    const simulationModeBtn = document.getElementById('simulationModeBtn');
+    if (simulationModeBtn) {
+        simulationModeBtn.addEventListener('click', toggleOperationMode);
     }
 });

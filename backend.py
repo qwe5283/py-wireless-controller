@@ -55,6 +55,8 @@ class KeyboardController:
             'arrowleft': Key.left,
             'arrowright': Key.right,
         }
+        # 跟踪仿真模式下的按键状态
+        self.simulation_key_states = {}
     
     def get_pynput_key(self, key_name):
         """获取键值"""
@@ -90,7 +92,7 @@ class KeyboardController:
                     self.keyboard.release(pynput_key)
                 logging.info(f"Sticky key '{key_name}' deactivated (auto-reset)")
     
-    def process_key_event(self, key_name, action):
+    def process_key_event(self, key_name, action, mode='general'):
         """处理按键事件"""
         pynput_key = self.get_pynput_key(key_name)
         if not pynput_key:
@@ -98,35 +100,47 @@ class KeyboardController:
             return {"error": f"Unsupported key: {key_name}"}, 400
         
         try:
-            if key_name in self.sticky_keys:
-                # 按下粘滞键
+            if mode == 'simulation':
+                # 仿真模式：直接模拟按键按下/释放
                 if action == 'down':
-                    self.press_sticky_key(key_name)
-                    if self.sticky_keys[key_name] == 'locked':
-                        # 按住粘滞键
-                        self.keyboard.press(pynput_key)
-            else:
-                # 按下其他键
-                if action == 'down':
-                    active_modifiers = []
-                    for mod_key, state in self.sticky_keys.items():
-                        if state in ['active', 'locked']:
-                            mod_pynput_key = self.get_pynput_key(mod_key)
-                            if mod_pynput_key:
-                                active_modifiers.append((mod_key, mod_pynput_key))
-                    
-                    for mod_key, mod_pynput_key in active_modifiers:
-                        self.keyboard.press(mod_pynput_key)
-                    
                     self.keyboard.press(pynput_key)
+                    self.simulation_key_states[key_name] = True
+                    logging.info(f"Key '{key_name}' pressed (simulation mode)")
+                elif action == 'up':
                     self.keyboard.release(pynput_key)
-                    
-                    for mod_key, mod_pynput_key in active_modifiers:
-                        self.keyboard.release(mod_pynput_key)
-                    
-                    self.reset_active_sticky_keys()
-                    
-                    logging.info(f"Key '{key_name}' pressed with modifiers: {[mod[0] for mod in active_modifiers]}")
+                    self.simulation_key_states[key_name] = False
+                    logging.info(f"Key '{key_name}' released (simulation mode)")
+            else:
+                # 通用模式：使用粘滞键特性
+                if key_name in self.sticky_keys:
+                    # 按下粘滞键
+                    if action == 'down':
+                        self.press_sticky_key(key_name)
+                        if self.sticky_keys[key_name] == 'locked':
+                            # 按住粘滞键
+                            self.keyboard.press(pynput_key)
+                else:
+                    # 按下其他键
+                    if action == 'down':
+                        active_modifiers = []
+                        for mod_key, state in self.sticky_keys.items():
+                            if state in ['active', 'locked']:
+                                mod_pynput_key = self.get_pynput_key(mod_key)
+                                if mod_pynput_key:
+                                    active_modifiers.append((mod_key, mod_pynput_key))
+                        
+                        for mod_key, mod_pynput_key in active_modifiers:
+                            self.keyboard.press(mod_pynput_key)
+                        
+                        self.keyboard.press(pynput_key)
+                        self.keyboard.release(pynput_key)
+                        
+                        for mod_key, mod_pynput_key in active_modifiers:
+                            self.keyboard.release(mod_pynput_key)
+                        
+                        self.reset_active_sticky_keys()
+                        
+                        logging.info(f"Key '{key_name}' pressed with modifiers: {[mod[0] for mod in active_modifiers]}")
             
             return {"status": "success"}, 200
         except Exception as e:
@@ -146,8 +160,9 @@ def keypress():
     
     key_name = data['key'].lower()
     action = data['action'].lower()
+    mode = data.get('mode', 'general')  # 获取操作模式，默认为通用模式
     
-    result, status_code = keyboard_controller.process_key_event(key_name, action)
+    result, status_code = keyboard_controller.process_key_event(key_name, action, mode)
     return jsonify(result), status_code
 
 @app.route('/sticky_keys', methods=['GET'])

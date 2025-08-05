@@ -19,11 +19,12 @@ body {
 
 .header-buttons {
     display: flex;
-    gap: 10px;
 }
 
-.fullscreen-btn, .mode-toggle-btn {
-    padding: 8px 16px;
+.fullscreen-btn,
+.mode-toggle-btn,
+.simulation-mode-btn {
+    padding: 8px 8px;
     background-color: #4287f5;
     color: white;
     border: none;
@@ -31,10 +32,12 @@ body {
     cursor: pointer;
     font-size: 16px;
     white-space: nowrap;
-    margin-left: 4px;
+    margin-left: 6px;
 }
 
-.fullscreen-btn:hover, .mode-toggle-btn:hover {
+.fullscreen-btn:hover,
+.mode-toggle-btn:hover,
+.simulation-mode-btn:hover {
     background-color: #3367d6;
 }
 
